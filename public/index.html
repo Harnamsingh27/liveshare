@@ -245,13 +245,33 @@
     }
     .join-btn:hover { background: var(--accent-h); }
 
+    .home-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      width: 100%;
+    }
+    .home-btn:hover { color: var(--text); border-color: var(--muted); }
+    .home-btn svg { width: 15px; height: 15px; stroke: currentColor; }
+
+    header { cursor: pointer; }
+    header:hover h1 { opacity: 0.85; }
+
     footer { margin-top: 48px; color: var(--muted); font-size: 0.8rem; text-align: center; }
     footer span { color: var(--accent); }
   </style>
 </head>
 <body>
 
-<header>
+<header onclick="goHome()">
   <div class="logo">
     <div class="logo-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -308,6 +328,10 @@
       <div class="pulse-dot"></div>
       <span>Waiting for recipient to open the link&hellip;</span>
     </div>
+    <button class="home-btn" onclick="goHome()">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+      Start over
+    </button>
   </div>
 
   <div id="s-transfer" class="card" style="display:none">
@@ -350,6 +374,10 @@
       <h2>File sent!</h2>
       <p id="sc-info"></p>
     </div>
+    <button class="home-btn" onclick="goHome()">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+      Send another file
+    </button>
   </div>
 
 </div>
@@ -374,6 +402,10 @@
       <div class="spinner"></div>
       <span id="r-conn-text">Joining room&hellip;</span>
     </div>
+    <button class="home-btn" onclick="goHome()">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to home
+    </button>
   </div>
 
   <div id="r-transfer" class="card" style="display:none">
@@ -412,6 +444,10 @@
       <h2>Download complete!</h2>
       <p id="rc-info"></p>
     </div>
+    <button class="home-btn" onclick="goHome()">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to home
+    </button>
   </div>
 
 </div>
@@ -872,6 +908,51 @@ function joinWithCode() {
   history.pushState(null, '', '#' + code);
   document.getElementById('manual-join').style.display = 'none';
   initReceiver(code);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  GO HOME — click the logo to reset everything
+// ═══════════════════════════════════════════════════════════════
+
+function goHome() {
+  // Tear down sender
+  if (senderPeer) { senderPeer.destroy(); senderPeer = null; }
+  if (sock) { sock.disconnect(); sock = null; }
+  selectedFile = null;
+
+  // Tear down receiver
+  if (receiverPeer) { receiverPeer.destroy(); receiverPeer = null; }
+  recvMeta = null;
+  recvChunks = [];
+  recvCount = 0;
+  recvBytes = 0;
+  downloadDone = false;
+
+  // Reset progress bars
+  document.getElementById('s-bar').style.width = '0%';
+  document.getElementById('s-bar').classList.remove('done');
+  document.getElementById('s-pct').textContent = '0%';
+  document.getElementById('s-transferred').textContent = '';
+  document.getElementById('s-speed').textContent = '';
+
+  document.getElementById('r-bar').style.width = '0%';
+  document.getElementById('r-bar').classList.remove('done');
+  document.getElementById('r-pct').textContent = '0%';
+  document.getElementById('r-transferred').textContent = '';
+  document.getElementById('r-speed').textContent = '';
+
+  // Clear URL hash
+  history.pushState(null, '', location.pathname);
+
+  // Reset manual join
+  document.getElementById('manual-join').style.display = 'none';
+  document.getElementById('code-input').value = '';
+  document.getElementById('manual-error').innerHTML = '';
+
+  // Back to drop zone
+  showOnly('s-drop');
+  initSenderDrop();
 }
 
 </script>
