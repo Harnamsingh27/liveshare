@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LiveShare — P2P File Transfer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0f172a;
+      --surface:     #1e293b;
+      --surface2:    #273549;
+      --border:      #334155;
+      --accent:      #3b82f6;
+      --accent-h:    #2563eb;
+      --accent-dim:  rgba(59,130,246,0.12);
+      --success:     #22c55e;
+      --success-dim: rgba(34,197,94,0.12);
+      --error:       #ef4444;
+      --error-dim:   rgba(239,68,68,0.12);
+      --text:        #f1f5f9;
+      --muted:       #94a3b8;
+      --radius:      16px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px 80px;
+    }
+
+    header { text-align: center; margin-bottom: 44px; }
+    .logo {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-bottom: 8px;
+    }
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 20px; height: 20px; stroke: #fff; }
+    h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+    h1 span { color: var(--accent); }
+    .tagline { color: var(--muted); font-size: 0.9rem; margin-top: 5px; }
+
+    .card {
+      width: 100%;
+      max-width: 500px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+    }
+
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 56px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+    #drop-zone:hover, #drop-zone.over {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    #drop-zone .dz-icon {
+      width: 56px; height: 56px;
+      background: var(--accent-dim);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+      transition: background 0.2s;
+    }
+    #drop-zone:hover .dz-icon, #drop-zone.over .dz-icon { background: rgba(59,130,246,0.25); }
+    #drop-zone .dz-icon svg { width: 28px; height: 28px; stroke: var(--accent); }
+    #drop-zone h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
+    #drop-zone p  { color: var(--muted); font-size: 0.875rem; }
+    #drop-zone p span { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    #file-input { display: none; }
+
+    .file-row {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+    .fi-icon {
+      width: 40px; height: 40px; flex-shrink: 0;
+      background: var(--accent-dim);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .fi-icon svg { width: 20px; height: 20px; stroke: var(--accent); }
+    .fi-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fi-size { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+
+    .link-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .link-box-label {
+      display: block;
+      font-size: 0.72rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.09em;
+      margin-bottom: 10px;
+    }
+    .link-row { display: flex; align-items: center; gap: 8px; }
+    .link-url {
+      flex: 1; min-width: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 12px;
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-family: 'Courier New', monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: text; user-select: all;
+    }
+    .copy-btn {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 7px;
+      font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .copy-btn:hover  { background: var(--accent-h); }
+    .copy-btn.copied { background: var(--success); }
+
+    .status-chip {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 500;
+    }
+    .status-chip.info    { background: var(--accent-dim);  color: var(--accent);  }
+    .status-chip.success { background: var(--success-dim); color: var(--success); }
+    .status-chip.error   { background: var(--error-dim);   color: var(--error);   }
+
+    .spinner {
+      width: 15px; height: 15px; flex-shrink: 0;
+      border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .pulse-dot {
+      width: 9px; height: 9px; flex-shrink: 0;
+      border-radius: 50%; background: currentColor;
+      animation: pulse-anim 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse-anim {
+      0%,100% { opacity:1; transform:scale(1);    }
+      50%      { opacity:.4; transform:scale(.75); }
+    }
+
+    .progress-section { margin-top: 4px; }
+    .prog-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .prog-label { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+    .prog-pct   { font-size: 0.875rem; font-weight: 700; color: var(--accent); }
+    .prog-track { height: 8px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+    .prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent) 0%, #818cf8 100%);
+      border-radius: 999px; width: 0%;
+      transition: width 0.25s ease;
+    }
+    .prog-fill.done { background: var(--success); transition: background 0.4s, width 0.25s ease; }
+    .prog-meta {
+      display: flex; justify-content: space-between;
+      font-size: 0.75rem; color: var(--muted); margin-top: 6px;
+    }
+
+    .complete-banner { text-align: center; padding: 4px 0; }
+    .cb-icon {
+      width: 60px; height: 60px; margin: 0 auto 16px;
+      background: var(--success-dim); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cb-icon svg { width: 30px; height: 30px; stroke: var(--success); stroke-width: 2.5; }
+    .complete-banner h2 { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; }
+    .complete-banner p  { color: var(--muted); font-size: 0.875rem; }
+
+    .recv-hero { text-align: center; padding: 4px 0 22px; }
+    .rh-icon {
+      width: 60px; height: 60px; margin: 0 auto 16px;
+      background: var(--accent-dim); border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .rh-icon svg { width: 30px; height: 30px; stroke: var(--accent); }
+    .recv-hero h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    .recv-hero p  { color: var(--muted); font-size: 0.875rem; }
+
+    .footer-section { margin-top: 24px; text-align: center; width: 100%; max-width: 500px; }
+    .footer-toggle {
+      background: none; border: none;
+      color: var(--muted); font-size: 0.82rem;
+      cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+    }
+    .footer-toggle:hover { color: var(--text); }
+    .manual-join {
+      display: none; margin-top: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; text-align: left;
+    }
+    .manual-label {
+      display: block; font-size: 0.72rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 10px;
+    }
+    .manual-row { display: flex; gap: 8px; }
+    .code-input {
+      flex: 1;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+      padding: 11px 14px; color: var(--text);
+      font-size: 1rem; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; font-family: 'Courier New', monospace;
+      outline: none; transition: border-color 0.2s;
+    }
+    .code-input:focus { border-color: var(--accent); }
+    .code-input::placeholder { letter-spacing: 0.04em; font-weight: 400; font-family: inherit; font-size: 0.875rem; }
+    .join-btn {
+      padding: 11px 20px; flex-shrink: 0;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 7px;
+      font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .join-btn:hover { background: var(--accent-h); }
+
+    footer { margin-top: 48px; color: var(--muted); font-size: 0.8rem; text-align: center; }
+    footer span { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+    </div>
+    <h1>Live<span>Share</span></h1>
+  </div>
+  <p class="tagline">Drag a file. Get a link. Transfer directly browser&#8209;to&#8209;browser.</p>
+</header>
+
+
+<!-- ═══════════════════ SENDER VIEW ═══════════════════ -->
+<div id="sender-view">
+
+  <div id="s-drop" class="card">
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="dz-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <h2>Drop your file here</h2>
+      <p>or <span>click to browse</span> &mdash; up to 1&nbsp;GB</p>
+      <input type="file" id="file-input" />
+    </div>
+  </div>
+
+  <div id="s-waiting" class="card" style="display:none">
+    <div class="file-row">
+      <div class="fi-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+      </div>
+      <div style="min-width:0">
+        <div class="fi-name" id="sw-fname"></div>
+        <div class="fi-size" id="sw-fsize"></div>
+      </div>
+    </div>
+    <div class="link-box">
+      <span class="link-box-label">Share this link with the recipient</span>
+      <div class="link-row">
+        <div class="link-url" id="share-link">Generating&hellip;</div>
+        <button class="copy-btn" id="copy-btn" onclick="copyLink()">Copy</button>
+      </div>
+    </div>
+    <div class="status-chip info" id="s-wait-chip">
+      <div class="pulse-dot"></div>
+      <span>Waiting for recipient to open the link&hellip;</span>
+    </div>
+  </div>
+
+  <div id="s-transfer" class="card" style="display:none">
+    <div class="file-row">
+      <div class="fi-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+      </div>
+      <div style="min-width:0">
+        <div class="fi-name" id="st-fname"></div>
+        <div class="fi-size" id="st-fsize"></div>
+      </div>
+    </div>
+    <div class="status-chip info" id="s-transfer-chip" style="margin-bottom:18px">
+      <div class="spinner"></div>
+      <span id="s-transfer-text">Sending file&hellip;</span>
+    </div>
+    <div class="progress-section">
+      <div class="prog-header">
+        <span class="prog-label">Transfer progress</span>
+        <span class="prog-pct" id="s-pct">0%</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" id="s-bar"></div></div>
+      <div class="prog-meta">
+        <span id="s-transferred"></span>
+        <span id="s-speed"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="s-complete" class="card" style="display:none">
+    <div class="complete-banner">
+      <div class="cb-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h2>File sent!</h2>
+      <p id="sc-info"></p>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════ RECEIVER VIEW ═══════════════════ -->
+<div id="receiver-view" style="display:none">
+
+  <div id="r-connecting" class="card">
+    <div class="recv-hero">
+      <div class="rh-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </div>
+      <h2>Incoming file</h2>
+      <p>Establishing a direct connection&hellip;</p>
+    </div>
+    <div class="status-chip info" id="r-conn-chip">
+      <div class="spinner"></div>
+      <span id="r-conn-text">Joining room&hellip;</span>
+    </div>
+  </div>
+
+  <div id="r-transfer" class="card" style="display:none">
+    <div class="file-row">
+      <div class="fi-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+      </div>
+      <div style="min-width:0">
+        <div class="fi-name" id="rt-fname">Receiving&hellip;</div>
+        <div class="fi-size" id="rt-fsize"></div>
+      </div>
+    </div>
+    <div class="progress-section">
+      <div class="prog-header">
+        <span class="prog-label">Downloading</span>
+        <span class="prog-pct" id="r-pct">0%</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" id="r-bar"></div></div>
+      <div class="prog-meta">
+        <span id="r-transferred"></span>
+        <span id="r-speed"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="r-complete" class="card" style="display:none">
+    <div class="complete-banner">
+      <div class="cb-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h2>Download complete!</h2>
+      <p id="rc-info"></p>
+    </div>
+  </div>
+
+</div>
+
+
+<div class="footer-section" id="footer-section">
+  <button class="footer-toggle" onclick="toggleManualJoin()">Receive with a room code instead</button>
+  <div class="manual-join" id="manual-join">
+    <span class="manual-label">Enter room code</span>
+    <div class="manual-row">
+      <input class="code-input" id="code-input" maxlength="6" placeholder="ABC123"
+             oninput="this.value = this.value.toUpperCase()" />
+      <button class="join-btn" onclick="joinWithCode()">Join</button>
+    </div>
+    <div id="manual-error"></div>
+  </div>
+</div>
+
+<footer>Files travel <span>peer-to-peer</span> &mdash; the server never sees your data.</footer>
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://unpkg.com/simple-peer/simplepeer.min.js"></script>
+<script>
+
+// ─────────────────────────── Config ─────────────────────────────
+
+const CHUNK_SIZE      = 64 * 1024;
+const WEBRTC_TIMEOUT  = 8000;
+
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+      'turn:openrelay.metered.ca:80?transport=tcp'
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
+// ─────────────────────────── Helpers ────────────────────────────
+
+function fmtSize(b) {
+  if (b < 1024)    return b + ' B';
+  if (b < 1024**2) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1024**3) return (b/1024**2).toFixed(2) + ' MB';
+  return (b/1024**3).toFixed(2) + ' GB';
+}
+
+const ALL_SECTIONS      = ['s-drop','s-waiting','s-transfer','s-complete','r-connecting','r-transfer','r-complete'];
+const SENDER_SECTIONS   = new Set(['s-drop','s-waiting','s-transfer','s-complete']);
+const RECEIVER_SECTIONS = new Set(['r-connecting','r-transfer','r-complete']);
+
+function showOnly(id) {
+  ALL_SECTIONS.forEach(sid =>
+    document.getElementById(sid).style.display = sid === id ? '' : 'none'
+  );
+  document.getElementById('sender-view').style.display   = SENDER_SECTIONS.has(id)   ? '' : 'none';
+  document.getElementById('receiver-view').style.display = RECEIVER_SECTIONS.has(id) ? '' : 'none';
+  document.getElementById('footer-section').style.display = RECEIVER_SECTIONS.has(id) ? 'none' : '';
+}
+
+// ─────────────────────────── Init ───────────────────────────────
+
+window.addEventListener('DOMContentLoaded', () => {
+  const hash = window.location.hash.slice(1).toUpperCase();
+  if (/^[A-Z0-9]{6}$/.test(hash)) {
+    initReceiver(hash);
+  } else {
+    initSenderDrop();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  SENDER
+// ═══════════════════════════════════════════════════════════════
+
+let selectedFile = null;
+let senderPeer   = null;
+let sock         = null;
+
+function initSenderDrop() {
+  showOnly('s-drop');
+  const dz = document.getElementById('drop-zone');
+  const fi = document.getElementById('file-input');
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  fi.addEventListener('change', () => { if (fi.files[0]) handleFile(fi.files[0]); });
+}
+
+function handleFile(file) {
+  if (file.size > 1024**3) { alert('File exceeds the 1 GB limit.'); return; }
+  selectedFile = file;
+
+  document.getElementById('sw-fname').textContent = file.name;
+  document.getElementById('sw-fsize').textContent = fmtSize(file.size);
+  document.getElementById('share-link').textContent = 'Generating…';
+  showOnly('s-waiting');
+
+  sock = io();
+  sock.on('connect', () => {
+    sock.emit('create-room', res => {
+      if (res.error) { setWaitChip(res.error, 'error'); return; }
+      const link = `${location.protocol}//${location.host}/#${res.code}`;
+      document.getElementById('share-link').textContent = link;
+    });
+  });
+
+  sock.on('peer-joined', () => {
+    setWaitChip(
+      '<div class="spinner"></div><span>Recipient connected! Establishing connection&hellip;</span>',
+      'info', true
+    );
+    attemptConnectionThenSend();
+  });
+
+  sock.on('signal', data => { if (senderPeer) senderPeer.signal(data); });
+
+  sock.on('peer-disconnected', () => {
+    if (senderPeer) { senderPeer.destroy(); senderPeer = null; }
+    showOnly('s-waiting');
+    setWaitChip('Recipient disconnected. Share the link again.', 'error');
+  });
+}
+
+function setWaitChip(html, type, raw) {
+  const chip = document.getElementById('s-wait-chip');
+  chip.className = 'status-chip ' + type;
+  chip.innerHTML = raw ? html : '<span>' + html + '</span>';
+}
+
+// ── Try WebRTC first, fall back to relay ────────────────────────
+
+function attemptConnectionThenSend() {
+  let settled = false;
+
+  senderPeer = new SimplePeer({
+    initiator: true, trickle: false,
+    config: { iceServers: ICE_SERVERS }
+  });
+
+  const fallbackTimer = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    senderPeer.destroy(); senderPeer = null;
+    switchToRelay();
+  }, WEBRTC_TIMEOUT);
+
+  senderPeer.on('signal', d => sock.emit('signal', d));
+
+  senderPeer.on('connect', () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(fallbackTimer);
+    showTransferView('Sending via direct P2P connection&hellip;');
+    sendFileWebRTC();
+  });
+
+  senderPeer.on('error', () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(fallbackTimer);
+    senderPeer.destroy(); senderPeer = null;
+    switchToRelay();
+  });
+}
+
+function switchToRelay() {
+  sock.emit('use-relay');
+  showTransferView('Sending via secure relay&hellip;');
+  sendFileRelay();
+}
+
+function showTransferView(statusHtml) {
+  document.getElementById('st-fname').textContent = selectedFile.name;
+  document.getElementById('st-fsize').textContent = fmtSize(selectedFile.size);
+  document.getElementById('s-transfer-text').innerHTML = statusHtml;
+  showOnly('s-transfer');
+}
+
+// ── Send via WebRTC data channel ────────────────────────────────
+
+function sendFileWebRTC() {
+  const file = selectedFile;
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  senderPeer.send(JSON.stringify({ name: file.name, size: file.size, type: file.type, totalChunks }));
+
+  let idx = 0, bytesSent = 0, lastTime = Date.now(), lastBytes = 0;
+
+  function next() {
+    if (idx >= totalChunks) { senderDone(); return; }
+    if (senderPeer._channel && senderPeer._channel.bufferedAmount > 4 * 1024 * 1024) {
+      setTimeout(next, 50); return;
+    }
+    file.slice(idx * CHUNK_SIZE, (idx + 1) * CHUNK_SIZE).arrayBuffer().then(buf => {
+      senderPeer.send(buf);
+      bytesSent += buf.byteLength; idx++;
+      updateSenderProgress(idx, totalChunks, bytesSent, file.size);
+      setTimeout(next, 0);
+    });
+  }
+  next();
+}
+
+// ── Send via Socket.io relay ────────────────────────────────────
+
+function sendFileRelay() {
+  const file = selectedFile;
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  sock.emit('relay-meta', { name: file.name, size: file.size, type: file.type, totalChunks });
+
+  let idx = 0, bytesSent = 0;
+
+  function next() {
+    if (idx >= totalChunks) { sock.emit('relay-done'); senderDone(); return; }
+    file.slice(idx * CHUNK_SIZE, (idx + 1) * CHUNK_SIZE).arrayBuffer().then(buf => {
+      sock.emit('relay-chunk', buf);
+      bytesSent += buf.byteLength; idx++;
+      updateSenderProgress(idx, totalChunks, bytesSent, file.size);
+      setTimeout(next, 0);
+    });
+  }
+  next();
+}
+
+// ── Shared sender helpers ───────────────────────────────────────
+
+let sLastTime = Date.now(), sLastBytes = 0;
+
+function updateSenderProgress(idx, total, bytesSent, fileSize) {
+  const now = Date.now(), elapsed = (now - sLastTime) / 1000;
+  let speed = document.getElementById('s-speed').textContent;
+  if (elapsed >= 0.5) {
+    speed = fmtSize((bytesSent - sLastBytes) / elapsed) + '/s';
+    sLastTime = now; sLastBytes = bytesSent;
+  }
+  const pct = (idx / total) * 100;
+  document.getElementById('s-bar').style.width         = pct + '%';
+  document.getElementById('s-pct').textContent         = Math.round(pct) + '%';
+  document.getElementById('s-transferred').textContent = fmtSize(bytesSent) + ' / ' + fmtSize(fileSize);
+  document.getElementById('s-speed').textContent       = speed;
+}
+
+function senderDone() {
+  document.getElementById('s-bar').classList.add('done');
+  setTimeout(() => {
+    document.getElementById('sc-info').textContent =
+      selectedFile.name + ' · ' + fmtSize(selectedFile.size);
+    showOnly('s-complete');
+  }, 450);
+}
+
+function copyLink() {
+  const link = document.getElementById('share-link').textContent;
+  if (!link || link.startsWith('Generating')) return;
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  RECEIVER
+// ═══════════════════════════════════════════════════════════════
+
+let receiverPeer  = null;
+let recvMeta      = null;
+let recvChunks    = [];
+let recvCount     = 0;
+let recvBytes     = 0;
+let recvLastTime  = 0;
+let recvLastBytes = 0;
+let downloadDone  = false;
+
+function initReceiver(code) {
+  showOnly('r-connecting');
+  document.getElementById('r-conn-text').textContent = 'Joining room…';
+
+  const rsock = io();
+
+  rsock.on('connect', () => {
+    rsock.emit('join-room', code, res => {
+      if (res.error) { setRecvChip(res.error, 'error'); return; }
+      document.getElementById('r-conn-text').textContent = 'Waiting for sender…';
+    });
+  });
+
+  // WebRTC path
+  rsock.on('signal', data => {
+    if (!receiverPeer) setupReceiverPeer(rsock);
+    receiverPeer.signal(data);
+  });
+
+  // Relay path — sender tells us WebRTC failed, use relay instead
+  rsock.on('use-relay', () => {
+    if (receiverPeer) { receiverPeer.destroy(); receiverPeer = null; }
+    setupRelayReceiver(rsock);
+  });
+
+  rsock.on('peer-disconnected', () => {
+    if (receiverPeer) { receiverPeer.destroy(); receiverPeer = null; }
+    showOnly('r-connecting');
+    setRecvChip('Sender disconnected.', 'error');
+  });
+}
+
+function setRecvChip(html, type, raw) {
+  const chip = document.getElementById('r-conn-chip');
+  chip.className = 'status-chip ' + type;
+  chip.innerHTML = raw ? html : '<span>' + html + '</span>';
+}
+
+// ── Receive via WebRTC ──────────────────────────────────────────
+
+function setupReceiverPeer(rsock) {
+  receiverPeer = new SimplePeer({
+    initiator: false, trickle: false,
+    config: { iceServers: ICE_SERVERS }
+  });
+
+  receiverPeer.on('signal', d => rsock.emit('signal', d));
+  receiverPeer.on('connect', () => {
+    document.getElementById('r-conn-text').textContent = 'Connected! Waiting for file…';
+  });
+
+  receiverPeer.on('data', raw => {
+    if (!recvMeta) {
+      try {
+        const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
+        recvMeta = JSON.parse(text);
+        resetRecvState();
+        showRecvTransfer();
+      } catch {}
+      return;
+    }
+    const chunk = raw instanceof ArrayBuffer
+      ? raw : raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+    processChunk(chunk);
+    if (recvCount === recvMeta.totalChunks) finalizeDownload();
+  });
+
+  receiverPeer.on('error', () => {
+    // Relay fallback will be triggered by sender's use-relay event
+  });
+}
+
+// ── Receive via Socket.io relay ─────────────────────────────────
+
+function setupRelayReceiver(rsock) {
+  document.getElementById('r-conn-text').textContent = 'Connected via relay…';
+
+  rsock.on('relay-meta', meta => {
+    recvMeta = meta;
+    resetRecvState();
+    showRecvTransfer();
+  });
+
+  rsock.on('relay-chunk', chunk => {
+    const buf = chunk instanceof ArrayBuffer ? chunk
+      : (chunk.buffer ? chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)
+      : new Uint8Array(chunk).buffer);
+    processChunk(buf);
+  });
+
+  rsock.on('relay-done', () => {
+    finalizeDownload();
+  });
+}
+
+// ── Shared receiver helpers ─────────────────────────────────────
+
+function resetRecvState() {
+  recvChunks = []; recvCount = 0; recvBytes = 0;
+  recvLastTime = Date.now(); recvLastBytes = 0;
+  downloadDone = false;
+}
+
+function showRecvTransfer() {
+  document.getElementById('rt-fname').textContent = recvMeta.name;
+  document.getElementById('rt-fsize').textContent = fmtSize(recvMeta.size);
+  showOnly('r-transfer');
+}
+
+function processChunk(buf) {
+  recvChunks.push(buf);
+  recvCount++;
+  recvBytes += buf.byteLength;
+
+  const now = Date.now(), elapsed = (now - recvLastTime) / 1000;
+  let speed = document.getElementById('r-speed').textContent;
+  if (elapsed >= 0.5) {
+    speed = fmtSize((recvBytes - recvLastBytes) / elapsed) + '/s';
+    recvLastTime = now; recvLastBytes = recvBytes;
+  }
+  const pct = (recvCount / recvMeta.totalChunks) * 100;
+  document.getElementById('r-bar').style.width         = pct + '%';
+  document.getElementById('r-pct').textContent         = Math.round(pct) + '%';
+  document.getElementById('r-transferred').textContent = fmtSize(recvBytes) + ' / ' + fmtSize(recvMeta.size);
+  document.getElementById('r-speed').textContent       = speed;
+}
+
+function finalizeDownload() {
+  if (downloadDone) return;
+  downloadDone = true;
+
+  document.getElementById('r-bar').classList.add('done');
+
+  const blob = new Blob(recvChunks, { type: recvMeta.type || 'application/octet-stream' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: recvMeta.name });
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 5000);
+
+  document.getElementById('rc-info').textContent = recvMeta.name + ' · ' + fmtSize(recvMeta.size);
+  setTimeout(() => showOnly('r-complete'), 450);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  MANUAL JOIN
+// ═══════════════════════════════════════════════════════════════
+
+function toggleManualJoin() {
+  const el = document.getElementById('manual-join');
+  el.style.display = el.style.display === 'block' ? 'none' : 'block';
+}
+
+function joinWithCode() {
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (!/^[A-Z0-9]{6}$/.test(code)) {
+    document.getElementById('manual-error').innerHTML =
+      '<div class="status-chip error" style="margin-top:10px"><span>Enter a valid 6-character code.</span></div>';
+    return;
+  }
+  document.getElementById('manual-error').innerHTML = '';
+  history.pushState(null, '', '#' + code);
+  document.getElementById('manual-join').style.display = 'none';
+  initReceiver(code);
+}
+
+</script>
+</body>
+</html>
