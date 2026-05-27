@@ -521,7 +521,12 @@ function handleFile(file) {
   document.getElementById('share-link').textContent = 'Generating…';
   showOnly('s-waiting');
 
-  sock = io();
+  sock = io({ transports: ['websocket', 'polling'], reconnection: true });
+
+  sock.on('connect_error', () => {
+    setWaitChip('Connecting to server&hellip; (may take a moment)', 'info');
+  });
+
   sock.on('connect', () => {
     sock.emit('create-room', res => {
       if (res.error) { setWaitChip(res.error, 'error'); return; }
@@ -702,7 +707,11 @@ function initReceiver(code) {
   showOnly('r-connecting');
   document.getElementById('r-conn-text').textContent = 'Joining room…';
 
-  const rsock = io();
+  const rsock = io({ transports: ['websocket', 'polling'], reconnection: true });
+
+  rsock.on('connect_error', () => {
+    document.getElementById('r-conn-text').textContent = 'Connecting to server… (may take a moment)';
+  });
 
   rsock.on('connect', () => {
     rsock.emit('join-room', code, res => {

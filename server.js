@@ -7,10 +7,15 @@ const crypto = require('crypto');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  maxHttpBufferSize: 5e6
+  maxHttpBufferSize: 5e6,
+  cors: { origin: '*' },
+  transports: ['websocket', 'polling']
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Health check for Render
+app.get('/health', (req, res) => res.send('ok'));
 
 const rooms = {};
 
@@ -76,6 +81,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`LiveShare signaling server running at http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`LiveShare running on port ${PORT}`);
 });
